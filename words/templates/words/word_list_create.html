@@ -1,0 +1,41 @@
+{% extends 'words/base.html' %}
+
+{% block title %}Yeni Liste{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Yeni Liste Oluştur</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_name" class="form-label">Liste Adı</label>
+                        <input type="text" class="form-control" id="id_name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dil Yönü</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="language_direction" id="id_language_direction_0" value="en_tr" checked>
+                            <label class="form-check-label" for="id_language_direction_0">
+                                English - Türkçe
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="language_direction" id="id_language_direction_1" value="tr_en">
+                            <label class="form-check-label" for="id_language_direction_1">
+                                Türkçe - English
+                            </label>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Liste Oluştur</button>
+                        <a href="{% url 'word-list' %}" class="btn btn-outline-secondary">İptal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

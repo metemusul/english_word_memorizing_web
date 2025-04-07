@@ -1,0 +1,44 @@
+{% extends 'words/base.html' %}
+
+{% block title %}Listelerim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Listelerim</h2>
+            <a href="{% url 'word-list-create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Yeni Liste
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% for word_list in word_lists %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ word_list.name }}</h5>
+                <p class="card-text">
+                    <small class="text-muted">
+                        {% if word_list.language_direction == 'en_tr' %}
+                        English - Türkçe
+                        {% else %}
+                        Türkçe - English
+                        {% endif %}
+                    </small>
+                </p>
+                <a href="{% url 'word-list-detail' word_list.pk %}" class="btn btn-outline-primary">Detaylar</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            Henüz hiç kelime listeniz yok. Yeni bir liste oluşturmak için "Yeni Liste" butonuna tıklayın.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %} 
