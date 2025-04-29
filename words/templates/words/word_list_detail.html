@@ -11,7 +11,7 @@
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWordModal">
                     <i class="fas fa-plus"></i> Kelime Ekle
                 </button>
-                <a href="{% url 'word-list' %}" class="btn btn-outline-secondary">
+                <a href="{% url 'words:word-list' %}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left"></i> Geri
                 </a>
             </div>
@@ -39,13 +39,23 @@
                                 <th>İşlemler</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="wordsTableBody">
                             {% for word in words %}
-                            <tr>
-                                <td>{{ word.source_word }}</td>
-                                <td>{{ word.target_word }}</td>
+                            <tr id="word-{{ word.id }}">
                                 <td>
-                                    <button class="btn btn-sm btn-outline-danger">
+                                    {{ word.source_word }}
+                                    <button class="btn btn-sm btn-outline-primary play-sound" data-text="{{ word.source_word }}" data-lang="{% if word_list.language_direction == 'en_tr' %}en{% else %}tr{% endif %}">
+                                        <i class="fas fa-volume-up"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    {{ word.target_word }}
+                                    <button class="btn btn-sm btn-outline-primary play-sound" data-text="{{ word.target_word }}" data-lang="{% if word_list.language_direction == 'en_tr' %}tr{% else %}en{% endif %}">
+                                        <i class="fas fa-volume-up"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger delete-word" data-word-id="{{ word.id }}">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
@@ -75,6 +85,7 @@
             </div>
             <div class="modal-body">
                 <form id="addWordForm">
+                    {% csrf_token %}
                     <div class="mb-3">
                         <label class="form-label">
                             {% if word_list.language_direction == 'en_tr' %}İngilizce{% else %}Türkçe{% endif %}
@@ -91,9 +102,211 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="submit" form="addWordForm" class="btn btn-primary">Ekle</button>
+                <button type="button" id="addWordButton" class="btn btn-primary">Ekle</button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteWordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kelimeyi Sil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bu kelimeyi silmek istediğinizden emin misiniz?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" id="confirmDeleteButton" class="btn btn-danger">Sil</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addWordForm = document.getElementById('addWordForm');
+    const addWordButton = document.getElementById('addWordButton');
+    const wordsTableBody = document.getElementById('wordsTableBody');
+    const modal = new bootstrap.Modal(document.getElementById('addWordModal'));
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteWordModal'));
+    let wordToDelete = null;
+
+    // Kelime ekleme işlemi
+    addWordButton.addEventListener('click', function() {
+        const formData = new FormData(addWordForm);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch('{% url "words:add-word" word_list.pk %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const newRow = document.createElement('tr');
+                newRow.id = `word-${data.word.id}`;
+                newRow.innerHTML = `
+                    <td>
+                        ${data.word.source_word}
+                        <button class="btn btn-sm btn-outline-primary play-sound" data-text="${data.word.source_word}" data-lang="{% if word_list.language_direction == 'en_tr' %}en{% else %}tr{% endif %}">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                    </td>
+                    <td>
+                        ${data.word.target_word}
+                        <button class="btn btn-sm btn-outline-primary play-sound" data-text="${data.word.target_word}" data-lang="{% if word_list.language_direction == 'en_tr' %}tr{% else %}en{% endif %}">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger delete-word" data-word-id="${data.word.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                
+                if (wordsTableBody.querySelector('tr td[colspan="3"]')) {
+                    wordsTableBody.innerHTML = '';
+                }
+                
+                wordsTableBody.appendChild(newRow);
+                modal.hide();
+                addWordForm.reset();
+            } else {
+                alert('Kelime eklenirken bir hata oluştu: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Kelime eklenirken bir hata oluştu');
+        });
+    });
+
+    // Kelime silme işlemi
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-word')) {
+            wordToDelete = e.target.closest('.delete-word').dataset.wordId;
+            deleteModal.show();
+        }
+    });
+
+    document.getElementById('confirmDeleteButton').addEventListener('click', function() {
+        if (wordToDelete) {
+            fetch(`{% url "words:delete-word" 0 %}`.replace('0', wordToDelete), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`word-${wordToDelete}`).remove();
+                    if (wordsTableBody.children.length === 0) {
+                        wordsTableBody.innerHTML = `
+                            <tr>
+                                <td colspan="3" class="text-center">
+                                    Bu listede henüz kelime yok.
+                                </td>
+                            </tr>
+                        `;
+                    }
+                } else {
+                    alert('Kelime silinirken bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Kelime silinirken bir hata oluştu');
+            })
+            .finally(() => {
+                deleteModal.hide();
+                wordToDelete = null;
+            });
+        }
+    });
+
+    // Ses çalma fonksiyonu
+    function playTextToSpeech(text, lang) {
+        console.log('Playing text:', text, 'in language:', lang);
+        
+        // Önceki ses çalma işlemini durdur
+        if (window.currentAudio) {
+            window.currentAudio.pause();
+            window.currentAudio = null;
+        }
+        
+        const audioUrl = `{% url 'words:text_to_speech' %}?text=${encodeURIComponent(text)}&lang=${lang}`;
+        console.log('Audio URL:', audioUrl);
+        
+        // Önce isteği kontrol et
+        fetch(audioUrl)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Ses dosyası alınamadı');
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                console.log('Audio blob size:', blob.size);
+                if (blob.size === 0) {
+                    throw new Error('Ses dosyası boş');
+                }
+                
+                const audioUrl = URL.createObjectURL(blob);
+                window.currentAudio = new Audio(audioUrl);
+                
+                window.currentAudio.addEventListener('canplaythrough', function() {
+                    console.log('Audio is ready to play');
+                    window.currentAudio.play()
+                        .then(() => {
+                            console.log('Playback started');
+                            // Ses çalma bittiğinde URL'i temizle
+                            window.currentAudio.addEventListener('ended', function() {
+                                URL.revokeObjectURL(audioUrl);
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Playback error:', error);
+                            alert('Ses çalma hatası: ' + (error.message || 'Bilinmeyen hata'));
+                            URL.revokeObjectURL(audioUrl);
+                        });
+                });
+                
+                window.currentAudio.addEventListener('error', function(e) {
+                    console.error('Audio loading error:', e);
+                    alert('Ses yükleme hatası: ' + (e.message || 'Bilinmeyen hata'));
+                    URL.revokeObjectURL(audioUrl);
+                });
+                
+                window.currentAudio.load();
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('Ses dosyası alınamadı: ' + error.message);
+            });
+    }
+
+    // Ses butonlarına tıklama olayı
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.play-sound')) {
+            const button = e.target.closest('.play-sound');
+            const text = button.dataset.text;
+            const lang = button.dataset.lang;
+            console.log('Button clicked:', text, lang);
+            playTextToSpeech(text, lang);
+        }
+    });
+});
+</script>
 {% endblock %} 
